@@ -88,6 +88,30 @@ for the complete API.
 
 Versioning is strictly based on [Semantic Versioning](https://semver.org/)
 
+### Releasing new versions:
+
+* update changelog below (PR's should be merged including a changelog entry)
+* based on changelog determine new SemVer version
+* create a new rockspec
+* render the docs using `ldoc` (don't do this within PR's)
+* commit as "release x.x.x" (do not include rockspec revision)
+* tag the commit with "x.x.x" (do not include rockspec revision)
+* push commit and tag
+* upload rock to luarocks: `luarocks upload rockspecs/[name] --api-key=abc`
+
+### Unreleased
+
+* fix: properly log line numbers by using tail calls [#29](https://github.com/Kong/lua-resty-healthcheck/pull/29)
+* fix: when not providing a hostname, use IP [#48](https://github.com/Kong/lua-resty-healthcheck/pull/48)
+* fix: makefile; make install
+
+### 1.3.0 (17-Jun-2020)
+
+* Adds support to mTLS to active healthchecks. This feature  can be used adding
+  the fields `ssl_cert` and `ssl_key`, with certificate and key respectively,
+  when creating a new healthcheck object.
+  [#41](https://github.com/Kong/lua-resty-healthcheck/pull/41)
+
 ### 1.2.0 (13-Feb-2020)
 
  * Adds `set_all_target_statuses_for_hostname`, which sets the targets for
