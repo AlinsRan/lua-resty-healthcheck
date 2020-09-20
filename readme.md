@@ -116,6 +116,8 @@ Versioning is strictly based on [Semantic Versioning](https://semver.org/)
 * fix: prevent target-list from being nil, due to async behaviour [#44](https://github.com/Kong/lua-resty-healthcheck/pull/44)
 * fix: replace timer and node-wide locks with resty-timer, to prevent interval
   skips [#59](https://github.com/Kong/lua-resty-healthcheck/pull/59)
+* fix: do not run out of timers during init/init_worker when adding a vast
+  amount of targets [#57](https://github.com/Kong/lua-resty-healthcheck/pull/57)
 
 ### 1.3.0 (17-Jun-2020)
 
