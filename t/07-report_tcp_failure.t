@@ -128,7 +128,7 @@ qq{
                         unhealthy  = {
                             interval = 999, -- we don't want active checks
                             tcp_failures = 0,
-                            http_failures = 5,
+                            http_failures = 0,
                         }
                     },
                     passive = {
@@ -204,7 +204,7 @@ qq{
                         },
                         unhealthy  = {
                             tcp_failures = 0,
-                            http_failures = 5,
+                            http_failures = 0,
                         }
                     }
                 }
