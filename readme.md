@@ -118,6 +118,8 @@ Versioning is strictly based on [Semantic Versioning](https://semver.org/)
   skips [#59](https://github.com/Kong/lua-resty-healthcheck/pull/59)
 * fix: do not run out of timers during init/init_worker when adding a vast
   amount of targets [#57](https://github.com/Kong/lua-resty-healthcheck/pull/57)
+* fix: do not call on the module table, but use a method for locks. Also in
+  [#57](https://github.com/Kong/lua-resty-healthcheck/pull/57)
 
 ### 1.3.0 (17-Jun-2020)
 
