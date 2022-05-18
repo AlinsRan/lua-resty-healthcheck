@@ -918,9 +918,19 @@ function checker:run_single_check(ip, port, hostname, hostheader)
   end
 
   if self.checks.active.type == "https" then
-    local session
-    session, err = sock:sslhandshake(nil, hostname,
+    local https_sni, session, err
+    https_sni = self.checks.active.https_sni or hostheader or hostname
+    if self.ssl_cert and self.ssl_key then
+      ok, err = sock:setclientcert(self.ssl_cert, self.ssl_key)
+
+      if not ok then
+        self:log(ERR, "failed to set client certificate: ", err)
+      end
+    end
+
+    session, err = sock:sslhandshake(nil, https_sni,
                                      self.checks.active.https_verify_certificate)
+
     if not session then
       sock:close()
       self:log(ERR, "failed SSL handshake with '", hostname or "", " (", ip, ":", port, ")': ", err)
