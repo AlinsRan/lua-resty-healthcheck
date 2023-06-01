@@ -1,8 +1,8 @@
-package = "lua-resty-healthcheck-api7-master"
-version = "0-0"
+package = "lua-resty-healthcheck-alins"
+version = "3.0.1-0"
 source = {
-   url = "git://github.com/api7/lua-resty-healthcheck",
-   branch = "master",
+   url = "git://github.com/AlinsRan/lua-resty-healthcheck",
+   tag = "v3.0.1"
 }
 
 description = {
@@ -12,7 +12,7 @@ description = {
       availability by sending requests and validating responses at timed
       intervals.
    ]],
-   homepage = "https://github.com/api7/lua-resty-healthcheck",
+   homepage = "https://github.com/AlinsRan/lua-resty-healthcheck",
    license = "Apache 2.0"
 }
 
