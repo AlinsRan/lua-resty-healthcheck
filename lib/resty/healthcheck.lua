@@ -30,6 +30,7 @@ local DEBUG = ngx.DEBUG
 local ngx_log = ngx.log
 local tostring = tostring
 local ipairs = ipairs
+require("table.nkeys")
 local cjson = require("cjson.safe").new()
 local table_remove = table.remove
 local resty_timer = require("resty.timer")
@@ -198,6 +199,48 @@ end
 
 local function key_for(key_prefix, ip, port, hostname)
   return string.format("%s:%s:%s%s", key_prefix, ip, port, hostname and ":" .. hostname or "")
+end
+
+
+local deepcopy
+do
+    local function _deepcopy(orig, copied)
+        -- prevent infinite loop when a field refers its parent
+        copied[orig] = true
+        -- If the array-like table contains nil in the middle,
+        -- the len might be smaller than the expected.
+        -- But it doesn't affect the correctness.
+        local len = #orig
+        local copy = table.new(len, table.nkeys(orig) - len)
+        for orig_key, orig_value in pairs(orig) do
+            if type(orig_value) == "table" and not copied[orig_value] then
+                copy[orig_key] = _deepcopy(orig_value, copied)
+            else
+                copy[orig_key] = orig_value
+            end
+        end
+
+        local mt = getmetatable(orig)
+        if mt ~= nil then
+            setmetatable(copy, mt)
+        end
+
+        return copy
+    end
+
+
+    local copied_recorder = {}
+
+    function deepcopy(orig)
+        local orig_type = type(orig)
+        if orig_type ~= 'table' then
+            return orig
+        end
+
+        local res = _deepcopy(orig, copied_recorder)
+        table.clear(copied_recorder)
+        return res
+    end
 end
 
 
@@ -924,8 +967,14 @@ function checker:run_single_check(ip, port, hostname, hostheader)
     headers = headers .. "\r\n"
   end
 
+  local req_headers = self.checks.active.req_headers
+  local headers = table.concat(req_headers, "\r\n")
+  if #headers > 0 then
+    headers = headers .. "\r\n"
+  end
+
   local path = self.checks.active.http_path
-  local request = ("GET %s HTTP/1.0\r\n%sHost: %s\r\n\r\n"):format(path, headers, hostheader or hostname or ip)
+  local request = ("GET %s HTTP/1.1\r\nConnection: close\r\n%sHost: %s\r\n\r\n"):format(path, headers, hostheader or hostname or ip)
   self:log(DEBUG, "request head: ", request)
 
   local bytes
@@ -1250,7 +1299,7 @@ local function fill_in_settings(opts, defaults, ctx)
         obj[k] = v
       end
     elseif default ~= NO_DEFAULT then
-      obj[k] = default
+      obj[k] = deepcopy(default)
     end
 
   end
@@ -1285,6 +1334,7 @@ local defaults = {
         timeouts = 3,
         http_failures = 5,
       },
+      req_headers = {""},
     },
     passive = {
       type = "http",
@@ -1507,6 +1557,63 @@ function _M.new(opts)
   -- TODO: push entire config in debug level logs
   self:log(DEBUG, "Healthchecker started!")
   return self
+end
+
+
+function _M.get_target_list(name, shm_name)
+  local self = {
+    name = name,
+    shm_name = shm_name,
+    log = checker.log,
+  }
+  self.shm = ngx.shared[tostring(shm_name)]
+  assert(self.shm, ("no shm found by name '%s'"):format(shm_name))
+  self.TARGET_STATE     = SHM_PREFIX .. self.name .. ":state"
+  self.TARGET_COUNTER   = SHM_PREFIX .. self.name .. ":counter"
+  self.TARGET_LIST      = SHM_PREFIX .. self.name .. ":target_list"
+  self.TARGET_LIST_LOCK = SHM_PREFIX .. self.name .. ":target_list_lock"
+  self.LOG_PREFIX       = LOG_PREFIX .. "(" .. self.name .. ") "
+
+  local ok, err = run_fn_locked_target_list(false, self, function(target_list)
+    self.targets = target_list
+    for _, target in ipairs(self.targets) do
+      local state_key = key_for(self.TARGET_STATE, target.ip, target.port, target.hostname)
+      target.status = INTERNAL_STATES[self.shm:get(state_key)]
+      if not target.hostheader then
+          target.hostheader = nil
+      end
+    end
+
+    return true
+  end)
+
+  for _, target in ipairs(self.targets) do
+    local ok = run_mutexed_fn(false, self, ip, port, hostname, function()
+      local counter = self.shm:get(key_for(self.TARGET_COUNTER,
+        target.ip, target.port, target.hostname))
+      target.counter = {
+        success = ctr_get(counter, CTR_SUCCESS),
+        http_failure = ctr_get(counter, CTR_HTTP),
+        tcp_failure = ctr_get(counter, CTR_TCP),
+        timeout_failure = ctr_get(counter, CTR_TIMEOUT),
+      }
+    end)
+
+    if not ok then
+      target.counter = {
+        success = 0,
+        http_failure = 0,
+        tcp_failure = 0,
+        timeout_failure = 0,
+      }
+    end
+  end
+
+  if not ok then
+    return nil, "Error loading target list: " .. err
+  end
+
+  return self.targets
 end
 
 
